@@ -1,4 +1,4 @@
-const CACHE_NAME = 'promomanager-hard-rebuild-v1.7.3'; // Forza rebuild totale
+const CACHE_NAME = 'promomanager-v1.7.4'; // Incrementa per forzare l'aggiornamento
 const ASSETS = [
     './',
     './index.html',

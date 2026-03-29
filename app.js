@@ -310,8 +310,8 @@ syncBtn.onclick = () => {
         if (state.isAuthorized) {
             pullStateFromCloud();
         } else {
-            // Altrimenti chiediamo l'account (necessario su mobile per Chrome)
-            tokenClient.requestAccessToken({ prompt: 'consent select_account' });
+            // Tentativo fluido: chiediamo l'accesso senza forzare la scelta se già loggati
+            tokenClient.requestAccessToken({ prompt: '' });
         }
     } else {
         if (!state.googleClientId) {
