@@ -116,7 +116,7 @@
                 </div>
             </section>
 
-            <!-- Details Screen (Edit/View) -->
+            <!-- Details Panel (Edit/View) - RENAMED to dodge cache -->
             <section id="screen-details" class="screen">
                 <header class="section-header">
                     <button id="back-to-home" class="icon-btn">
@@ -128,11 +128,13 @@
                     </button>
                 </header>
 
-                <div id="details-form-container" class="results-panel active">
+                <!-- RENAMED CONTAINER -->
+                <div id="promo-edit-viewer" class="results-panel active" style="min-height: 200px; padding-bottom: 20px;">
                     <!-- Populated by JS -->
+                    <p style="text-align:center; padding:40px; color:var(--text-dim);">Caricamento dati...</p>
                 </div>
 
-                <div class="details-actions" style="margin-top:20px; padding:0 20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="details-actions" style="margin-top:10px; padding:0 20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <button id="status-refunded-btn" class="primary-btn" style="background:var(--success); color:white;">
                         <span class="material-icons-round">check_circle</span>
                         Rimborsata
@@ -209,7 +211,7 @@
                 </div>
 
                 <div class="info-footer">
-                    <p>PromoManager v1.6.7 • March 2026</p>
+                    <p>PromoManager v1.7.3-REBUILD • March 2026</p>
                     <p>Powered by Gemini 3.1 Flash Lite</p>
                 </div>
             </section>
@@ -368,6 +370,6 @@
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
-    <script src="app.js?v=1.6.7" type="module"></script>
+    <script src="app.js?v=1.7.3-REBUILD" type="module"></script>
 </body>
 </html>

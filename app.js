@@ -24,7 +24,7 @@ const promoList = document.getElementById('promo-list');
 const yearFilter = document.getElementById('year-filter');
 const cloudStatus = document.getElementById('cloud-status');
 const createFormContainer = document.getElementById('create-form-container');
-const detailsFormContainer = document.getElementById('details-form-container');
+const detailsFormContainer = document.getElementById('promo-edit-viewer');
 
 // PDF & Scanner Elements
 const dropZonePdf = document.getElementById('drop-zone-pdf');
@@ -90,107 +90,139 @@ document.getElementById('back-to-home').onclick = () => showScreen('home');
 
 // --- FORM RENDERER (SHARED) ---
 function renderPromoForm(container, data = null, isEdit = false) {
-    const template = document.getElementById('promo-form-template');
-    const clone = template.content.cloneNode(true);
+    if (!container) return;
     
-    const nameIn = clone.querySelector('.form-name');
-    const startIn = clone.querySelector('.form-start');
-    const endIn = clone.querySelector('.form-end');
-    const refundTermsIn = clone.querySelector('.form-refund-terms');
-    const amountIn = clone.querySelector('.form-amount');
-    const supportIn = clone.querySelector('.form-support');
-    const supportLink = clone.querySelector('.form-support-link');
-    const eanTable = clone.querySelector('.form-ean-list');
-    const scanBtn = clone.querySelector('.form-scan-btn');
-    const rulesIn = clone.querySelector('.form-participation-rules');
-    const notesIn = clone.querySelector('.form-notes');
-    const sendDeadline = clone.querySelector('.form-send-deadline');
-    const refundDeadline = clone.querySelector('.form-refund-deadline');
-    const saveBtn = clone.querySelector('.form-save-btn');
-    
-    // Fix Upload Buttons Listeners
-    const receiptZone = clone.querySelector('.form-receipt-zone');
-    const receiptIn = clone.querySelector('.form-receipt-upload');
-    const productsZone = clone.querySelector('.form-products-zone');
-    const productsIn = clone.querySelector('.form-products-upload');
+    try {
+        const template = document.getElementById('promo-form-template');
+        if (!template) throw new Error("Template 'promo-form-template' non trovato!");
+        
+        const clone = template.content.cloneNode(true);
+        
+        const nameIn = clone.querySelector('.form-name');
+        const startIn = clone.querySelector('.form-start');
+        const endIn = clone.querySelector('.form-end');
+        const refundTermsIn = clone.querySelector('.form-refund-terms');
+        const amountIn = clone.querySelector('.form-amount');
+        const supportIn = clone.querySelector('.form-support');
+        const supportLink = clone.querySelector('.form-support-link');
+        const eanTable = clone.querySelector('.form-ean-list');
+        const scanBtn = clone.querySelector('.form-scan-btn');
+        const rulesIn = clone.querySelector('.form-participation-rules');
+        const notesIn = clone.querySelector('.form-notes');
+        const sendDeadline = clone.querySelector('.form-send-deadline');
+        const refundDeadline = clone.querySelector('.form-refund-deadline');
+        const saveBtn = clone.querySelector('.form-save-btn');
+        const purchaseDateIn = clone.querySelector('.form-purchase-date');
+        
+        // Fix Upload Buttons Listeners
+        const receiptZone = clone.querySelector('.form-receipt-zone');
+        const receiptIn = clone.querySelector('.form-receipt-upload');
+        const productsZone = clone.querySelector('.form-products-zone');
+        const productsIn = clone.querySelector('.form-products-upload');
 
-    receiptZone.onclick = () => receiptIn.click();
-    productsZone.onclick = () => productsIn.click();
+        if (receiptZone) receiptZone.onclick = () => { if (receiptIn) receiptIn.click(); };
+        if (productsZone) productsZone.onclick = () => { if (productsIn) productsIn.click(); };
 
-    receiptIn.onchange = (e) => {
-        if (e.target.files[0]) {
-            receiptZone.querySelector('p').innerText = "✅ Scontrino Pronto";
-            receiptZone.style.borderColor = "var(--primary)";
+        if (receiptIn) {
+            receiptIn.onchange = (e) => {
+                if (e.target.files[0] && receiptZone) {
+                    const pLabel = receiptZone.querySelector('p');
+                    if (pLabel) pLabel.innerText = "✅ Scontrino Pronto";
+                    receiptZone.style.borderColor = "var(--primary)";
+                }
+            };
         }
-    };
-    productsIn.onchange = (e) => {
-        if (e.target.files.length) {
-            productsZone.querySelector('p').innerText = `✅ ${e.target.files.length} Prodotti`;
-            productsZone.style.borderColor = "var(--primary)";
+        if (productsIn) {
+            productsIn.onchange = (e) => {
+                if (e.target.files.length && productsZone) {
+                    const pLabel = productsZone.querySelector('p');
+                    if (pLabel) pLabel.innerText = `✅ ${e.target.files.length} Prodotti`;
+                    productsZone.style.borderColor = "var(--primary)";
+                }
+            };
         }
-    };
 
-    if (data) {
-        nameIn.value = tidy(data.name || data.shop);
-        startIn.value = data.validity?.start || data.start || '';
-        endIn.value = data.validity?.end || data.end || '';
-        refundTermsIn.value = tidy(data.refund_mode || data.refund_terms);
-        amountIn.value = data.cashback_amount || data.amount || 0;
-        supportIn.value = data.support_contacts || data.support || '';
-        purchaseDateIn.value = data.purchaseDate || '';
-        if (rulesIn) rulesIn.value = data.participation_rules || data.how_to_participate || '';
-        if (notesIn) notesIn.value = data.notes || '';
+        if (data) {
+            try {
+                if (nameIn) nameIn.value = tidy(data.name || data.shop);
+                if (startIn) startIn.value = data.validity?.start || data.start || '';
+                if (endIn) endIn.value = data.validity?.end || data.end || '';
+                if (refundTermsIn) refundTermsIn.value = tidy(data.refund_mode || data.refund_terms);
+                if (amountIn) amountIn.value = data.cashback_amount || data.amount || 0;
+                if (supportIn) supportIn.value = data.support_contacts || data.support || '';
+                if (purchaseDateIn) purchaseDateIn.value = data.purchaseDate || '';
+                if (rulesIn) rulesIn.value = data.participation_rules || data.how_to_participate || '';
+                if (notesIn) notesIn.value = data.notes || '';
+            } catch(popErr) { console.error("[DEBUG] Errore Popolamento:", popErr); }
+            
+            const products = data.products || [];
+            if (eanTable) {
+                eanTable.innerHTML = products.map(p => `
+                    <tr>
+                        <td contenteditable="true" class="ean-cell" data-placeholder="EAN">${p.ean || ''}</td>
+                        <td contenteditable="true" class="name-cell" data-placeholder="Prodotto">${tidy(p.name)}</td>
+                        <td style="width:40px;"><button type="button" class="icon-btn small-error" onclick="removeEanRow(this)"><span class="material-icons-round">delete</span></button></td>
+                    </tr>
+                `).join('');
+            }
+            
+            if (eanTable) {
+                const addBtn = document.createElement('button');
+                addBtn.type = 'button';
+                addBtn.className = 'primary-btn small add-ean-btn';
+                addBtn.style.cssText = 'margin:10px auto; display:flex; align-items:center; gap:5px; font-size:0.85rem; padding:8px 12px;';
+                addBtn.innerHTML = '<span class="material-icons-round" style="font-size:1.1rem;">add</span> Aggiungi Prodotto';
+                addBtn.onclick = () => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td contenteditable="true" class="ean-cell" data-placeholder="EAN"></td>
+                        <td contenteditable="true" class="name-cell" data-placeholder="Prodotto"></td>
+                        <td style="width:40px;"><button type="button" class="icon-btn small-error" onclick="removeEanRow(this)"><span class="material-icons-round">delete</span></button></td>
+                    `;
+                    eanTable.appendChild(tr);
+                };
+                const tableWrapper = clone.querySelector('.ean-table');
+                if (tableWrapper) tableWrapper.after(addBtn);
+            }
+            
+            if (purchaseDateIn && data.purchaseDate) updateDeadlines(data.purchaseDate, data, sendDeadline, refundDeadline);
+            if (supportIn && supportLink) updateSupportLink(supportIn.value, supportLink);
+        }
+
+        if (supportIn) supportIn.oninput = (e) => updateSupportLink(e.target.value, supportLink);
+        if (purchaseDateIn) purchaseDateIn.onchange = (e) => updateDeadlines(e.target.value, data || state.tempPromoData, sendDeadline, refundDeadline);
+        if (scanBtn) scanBtn.onclick = () => startScanner(eanTable, data || state.tempPromoData);
         
-        const products = data.products || [];
-        eanTable.innerHTML = products.map(p => `
-            <tr>
-                <td contenteditable="true" class="ean-cell" data-placeholder="EAN">${p.ean || ''}</td>
-                <td contenteditable="true" class="name-cell" data-placeholder="Prodotto">${tidy(p.name)}</td>
-                <td style="width:40px;"><button type="button" class="icon-btn small-error" onclick="removeEanRow(this)"><span class="material-icons-round">delete</span></button></td>
-            </tr>
-        `).join('');
-        
-        const addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.className = 'primary-btn small add-ean-btn';
-        addBtn.style.cssText = 'margin:10px auto; display:flex; align-items:center; gap:5px; font-size:0.85rem; padding:8px 12px;';
-        addBtn.innerHTML = '<span class="material-icons-round" style="font-size:1.1rem;">add</span> Aggiungi Prodotto';
-        addBtn.onclick = () => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td contenteditable="true" class="ean-cell" data-placeholder="EAN"></td>
-                <td contenteditable="true" class="name-cell" data-placeholder="Prodotto"></td>
-                <td style="width:40px;"><button type="button" class="icon-btn small-error" onclick="removeEanRow(this)"><span class="material-icons-round">delete</span></button></td>
-            `;
-            eanTable.appendChild(tr);
-        };
-        clone.querySelector('.ean-table').after(addBtn);
-        
-        if (data.purchaseDate) updateDeadlines(data.purchaseDate, data, sendDeadline, refundDeadline);
-        updateSupportLink(supportIn.value, supportLink);
+        if (isEdit) {
+            if (saveBtn) saveBtn.classList.add('hidden');
+            if (data && (data.status === "✅ Rimborsata" || data.status === "✅ Rimborsato")) {
+                clone.querySelectorAll('.participation-section, .list-section').forEach(el => el.style.display = 'none');
+                const archiveInfo = document.createElement('p');
+                archiveInfo.className = 'status-badge success';
+                archiveInfo.style.textAlign = 'center';
+                archiveInfo.innerText = "PROMO ARCHIVIATA (Dettagli rimossi per risparmio spazio)";
+                const mainCard = clone.querySelector('.promo-details-card');
+                if (mainCard) mainCard.appendChild(archiveInfo);
+            }
+        } else {
+            if (saveBtn) saveBtn.onclick = () => handleSave(container);
+        }
+
+        container.innerHTML = '';
+        container.appendChild(clone);
+        console.log("[DEBUG] Render Form Success v1.7.3");
+
+    } catch(err) {
+        console.error("[CRITICAL] renderPromoForm Error:", err);
+        container.innerHTML = `
+            <div style="padding:24px; text-align:center; color:var(--error); background:rgba(255,71,87,0.05); border-radius:16px;">
+                <span class="material-icons-round" style="font-size:3rem; margin-bottom:12px;">error_outline</span>
+                <h3>Errore di Caricamento</h3>
+                <p>${err.message}</p>
+                <p style="font-size:0.8rem; margin-top:12px; opacity:0.7;">Prova un aggiornamento forzato (CTRL+F5)</p>
+            </div>
+        `;
     }
-
-    supportIn.oninput = (e) => updateSupportLink(e.target.value, supportLink);
-    purchaseDateIn.onchange = (e) => updateDeadlines(e.target.value, data || state.tempPromoData, sendDeadline, refundDeadline);
-    scanBtn.onclick = () => startScanner(eanTable, data || state.tempPromoData);
-    
-    if (isEdit) {
-        saveBtn.classList.add('hidden');
-        if (data && (data.status === "✅ Rimborsata" || data.status === "✅ Rimborsato")) {
-            // Se archiviata, nascondi sezioni inutili
-            clone.querySelectorAll('.participation-section, .list-section').forEach(el => el.style.display = 'none');
-            const archiveInfo = document.createElement('p');
-            archiveInfo.className = 'status-badge success';
-            archiveInfo.style.textAlign = 'center';
-            archiveInfo.innerText = "PROMO ARCHIVIATA (Dettagli rimossi per risparmio spazio)";
-            clone.querySelector('.promo-details-card').appendChild(archiveInfo);
-        }
-    } else {
-        saveBtn.onclick = () => handleSave(container);
-    }
-
-    container.innerHTML = '';
-    container.appendChild(clone);
 }
 
 function updateDeadlines(dateStr, data, sendEl, refundEl) {
@@ -653,8 +685,14 @@ async function deletePromoPermanently(id) {
 
 // --- DASHBOARD & LIST ---
 function renderDashboard() {
-    // Dynamic Filter Population
-    const years = [...new Set(state.promos.map(p => new Date(p.purchaseDate || p.id).getFullYear().toString()))].sort().reverse();
+    // Sanitize state
+    state.promos = (state.promos || []).filter(p => p && (p.shop || p.name));
+
+    // Dynamic Filter Population with Safety Checks
+    const years = [...new Set(state.promos.map(p => {
+        const d = new Date(p.purchaseDate || p.id);
+        return isNaN(d.getTime()) ? new Date().getFullYear().toString() : d.getFullYear().toString();
+    }))].sort().reverse();
     const currentVal = yearFilter.value;
     yearFilter.innerHTML = '<option value="total">Tutto il tempo</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
     if (years.includes(currentVal) || currentVal === 'total') yearFilter.value = currentVal;
@@ -854,7 +892,7 @@ function setupSettingsListeners() {
 
 // --- INIT ---
 window.addEventListener('load', () => {
-    console.log("App Initialization Start v1.6.8 (Personal Notes & Multi-Sync Mode)");
+    console.log("App Initialization Start v1.7.3-REBUILD (Hard Recovery Mode)");
     gapiInit(); 
     gisInit(); 
     renderDashboard();
