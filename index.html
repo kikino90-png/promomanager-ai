@@ -178,6 +178,9 @@
                                 <span id="debug-cloud-update" style="color:var(--text-color); font-weight:700;">--</span>
                             </div>
                         </div>
+                        <button id="btn-force-pull" class="primary-btn small" style="width:100%; margin-top:12px; background:var(--accent); font-size:0.75rem; padding:8px; border-radius:10px;">
+                            <span class="material-icons-round" style="font-size:1rem;">cloud_download</span> SCARICA ORA DAL CLOUD
+                        </button>
                     </div>
                 </div>
 
@@ -206,7 +209,7 @@
                 </div>
 
                 <div class="info-footer">
-                    <p>PromoManager v1.6.3 • March 2026</p>
+                    <p>PromoManager v1.6.7 • March 2026</p>
                     <p>Powered by Gemini 3.1 Flash Lite</p>
                 </div>
             </section>
@@ -253,6 +256,12 @@
                 <div class="input-field minimal" style="margin-top:15px;">
                     <label style="color:var(--accent); font-weight:800;">Come Partecipare (Sintesi AI)</label>
                     <textarea class="form-participation-rules" placeholder="Es: Acquista 2 prodotti, carica entro 5gg..." style="width:100%; min-height:80px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:12px; color:var(--text-color); font-size:0.9rem; padding:10px; font-family:inherit; resize:vertical;"></textarea>
+                </div>
+
+                <!-- NEW: Personal Notes for Multiple Participations -->
+                <div class="input-field minimal" style="margin-top:15px;">
+                    <label style="color:var(--primary); font-weight:800;">Note Personali / Account</label>
+                    <textarea class="form-notes" placeholder="Esempio: Account Mario, Cellulare 2, Carta prepagata..." style="width:100%; min-height:60px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:12px; color:var(--text-color); font-size:0.9rem; padding:10px; font-family:inherit; resize:vertical;"></textarea>
                 </div>
                 
                 <div class="list-section" style="margin-top:20px;">
@@ -359,6 +368,6 @@
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
-    <script src="app.js?v=1.6.3" type="module"></script>
+    <script src="app.js?v=1.6.7" type="module"></script>
 </body>
 </html>

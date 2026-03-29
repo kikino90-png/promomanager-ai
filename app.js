@@ -71,6 +71,15 @@ function populateConfigFields() {
     if (localTimer) {
         localTimer.innerText = state.lastUpdate ? new Date(state.lastUpdate).toLocaleString('it-IT') : "Mai sincronizzato";
     }
+
+    const forcePullBtn = document.getElementById('btn-force-pull');
+    if (forcePullBtn) {
+        forcePullBtn.onclick = () => {
+            if (confirm("Vuoi davvero sovrascrivere i dati locali con quelli del Cloud? Questa operazione è irreversibile.")) {
+                pullStateFromCloud(true);
+            }
+        };
+    }
 }
 
 navItems.forEach(item => {
@@ -93,8 +102,10 @@ function renderPromoForm(container, data = null, isEdit = false) {
     const supportLink = clone.querySelector('.form-support-link');
     const eanTable = clone.querySelector('.form-ean-list');
     const scanBtn = clone.querySelector('.form-scan-btn');
-    const purchaseDateIn = clone.querySelector('.form-purchase-date');
     const rulesIn = clone.querySelector('.form-participation-rules');
+    const notesIn = clone.querySelector('.form-notes');
+    const sendDeadline = clone.querySelector('.form-send-deadline');
+    const refundDeadline = clone.querySelector('.form-refund-deadline');
     const saveBtn = clone.querySelector('.form-save-btn');
     
     // Fix Upload Buttons Listeners
@@ -128,6 +139,7 @@ function renderPromoForm(container, data = null, isEdit = false) {
         supportIn.value = data.support_contacts || data.support || '';
         purchaseDateIn.value = data.purchaseDate || '';
         if (rulesIn) rulesIn.value = data.participation_rules || data.how_to_participate || '';
+        if (notesIn) notesIn.value = data.notes || '';
         
         const products = data.products || [];
         eanTable.innerHTML = products.map(p => `
@@ -162,8 +174,20 @@ function renderPromoForm(container, data = null, isEdit = false) {
     purchaseDateIn.onchange = (e) => updateDeadlines(e.target.value, data || state.tempPromoData, sendDeadline, refundDeadline);
     scanBtn.onclick = () => startScanner(eanTable, data || state.tempPromoData);
     
-    if (isEdit) saveBtn.classList.add('hidden');
-    else saveBtn.onclick = () => handleSave(container);
+    if (isEdit) {
+        saveBtn.classList.add('hidden');
+        if (data && (data.status === "✅ Rimborsata" || data.status === "✅ Rimborsato")) {
+            // Se archiviata, nascondi sezioni inutili
+            clone.querySelectorAll('.participation-section, .list-section').forEach(el => el.style.display = 'none');
+            const archiveInfo = document.createElement('p');
+            archiveInfo.className = 'status-badge success';
+            archiveInfo.style.textAlign = 'center';
+            archiveInfo.innerText = "PROMO ARCHIVIATA (Dettagli rimossi per risparmio spazio)";
+            clone.querySelector('.promo-details-card').appendChild(archiveInfo);
+        }
+    } else {
+        saveBtn.onclick = () => handleSave(container);
+    }
 
     container.innerHTML = '';
     container.appendChild(clone);
@@ -303,7 +327,11 @@ async function pushStateToCloud() {
             body: formData 
         });
 
-        if (fetchResp.status === 401) throw { status: 401 };
+        if (!fetchResp.ok) {
+            const errBody = await fetchResp.text();
+            console.error(`[DEBUG] Drive Fail ${fetchResp.status}:`, errBody);
+            throw { status: fetchResp.status, details: errBody };
+        }
         
         updateCloudUI('online');
         showToast("Dati salvati su Drive!", "check_circle");
@@ -319,10 +347,10 @@ async function pushStateToCloud() {
     }
 }
 
-async function pullStateFromCloud() {
+async function pullStateFromCloud(isForce = false) {
     if (!state.isAuthorized || !state.driveFolderId) return;
     updateCloudUI('syncing');
-    showToast("Sincronizzazione...", "sync");
+    showToast(isForce ? "Forzatura dati..." : "Sincronizzazione...", "sync");
     console.log(`[DEBUG] Ricerca promo_sync.json in cartella: ${state.driveFolderId}`);
     
     try {
@@ -333,6 +361,10 @@ async function pullStateFromCloud() {
         const files = resp.result.files;
         console.log(`[DEBUG] Risultati ricerca: Found ${files.length} file(s).`);
 
+        if (files.length > 1) {
+            console.warn(`[DEBUG] ATTENZIONE: Trovati ${files.length} file di sincronizzazione! Scelgo il più recente.`);
+        }
+        
         if (files.length === 0) {
             updateCloudUI('online');
             const cloudTimer = document.getElementById('debug-cloud-update');
@@ -347,6 +379,9 @@ async function pullStateFromCloud() {
             }
             return;
         }
+
+        // Sorting by newest modification date
+        files.sort((a,b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
 
         const fileId = files[0].id;
         const modifiedTime = new Date(files[0].modifiedTime).getTime();
@@ -375,16 +410,17 @@ async function pullStateFromCloud() {
             remoteUpdate = remoteData.lastUpdate || modifiedTime;
         }
 
+        console.log(`[DEBUG] Promo trovate nel Cloud: ${remotePromos.length}`);
         const localUpdate = state.lastUpdate || 0;
-        console.log(`[DEBUG] Timestamp - Remote: ${remoteUpdate}, Local: ${localUpdate}`);
+        console.log(`[DEBUG] Timestamp - Remote: ${remoteUpdate}, Local: ${localUpdate} (Force: ${isForce})`);
         
         // UI Diagnostics Update
         const cloudTimer = document.getElementById('debug-cloud-update');
         if (cloudTimer) cloudTimer.innerText = remoteUpdate ? new Date(remoteUpdate).toLocaleString('it-IT') : "Dato corrotto";
         populateConfigFields(); 
 
-        if (remoteUpdate > localUpdate) {
-            if (confirm(`Rilevato aggiornamento su Drive (${new Date(remoteUpdate).toLocaleString()}). Sostituire dati locali?`)) {
+        if (isForce || remoteUpdate > localUpdate) {
+            if (isForce || confirm(`Rilevato aggiornamento su Drive (${new Date(remoteUpdate).toLocaleString()}). Sostituire dati locali?`)) {
                 state.promos = remotePromos;
                 state.lastUpdate = remoteUpdate;
                 localStorage.setItem('promo_list', JSON.stringify(state.promos));
@@ -561,6 +597,7 @@ async function handleSave(container, isUpdate = false) {
             deadline: container.querySelector('.form-send-deadline').innerText,
             purchaseDate: container.querySelector('.form-purchase-date').value,
             support: container.querySelector('.form-support').value,
+            notes: container.querySelector('.form-notes').value.trim(),
             status: isUpdate ? state.promos.find(p => p.id === state.editingPromoId).status : '⏳ In attesa',
             driveFolderId: folderId,
             products: finalProducts,
@@ -657,9 +694,25 @@ window.openPromo = (id) => {
 };
 
 window.openInDrive = (id, event) => {
-    event.stopPropagation();
+    if (event) event.stopPropagation();
     if (!id) return alert("Nessuna cartella associata a questa promo.");
-    window.open(`https://drive.google.com/drive/folders/${id}`, '_blank');
+    
+    const webUrl = `https://drive.google.com/drive/folders/${id}`;
+    const ua = navigator.userAgent.toLowerCase();
+    
+    if (ua.indexOf("android") > -1) {
+        // Android Intent for Drive App
+        const intentUrl = `intent://drive.google.com/drive/folders/${id}#Intent;scheme=https;package=com.google.android.apps.docs;end`;
+        window.location.href = intentUrl;
+    } else if (ua.indexOf("iphone") > -1 || ua.indexOf("ipad") > -1) {
+        // iOS Custom Scheme for Drive App
+        const iosUrl = `googledrive://drive/folders/${id}`;
+        window.location.href = iosUrl;
+        setTimeout(() => { if (document.hasFocus()) window.open(webUrl, '_blank'); }, 500); 
+    } else {
+        // PC / Desktop - Normal Web Link
+        window.open(webUrl, '_blank');
+    }
 };
 
 async function updatePromoStatus(id, newStatus) {
@@ -671,6 +724,18 @@ async function updatePromoStatus(id, newStatus) {
 
     try {
         promo.status = newStatus;
+        
+        // --- ARCHIVIAZIONE INTELLIGENTE (LIGHT ARCHIVE) ---
+        if (newStatus === "✅ Rimborsata" || newStatus === "✅ Rimborsato") {
+            console.log("[DEBUG] Archiviazione: eliminazione dettagli pesanti.");
+            delete promo.products;
+            delete promo.participation_rules;
+            delete promo.how_to_participate;
+            delete promo.support_contacts;
+            delete promo.support;
+            // Teniamo solo: shop, amount, purchaseDate, id, status, deadline
+        }
+
         state.lastUpdate = Date.now();
         localStorage.setItem('last_update', state.lastUpdate);
         localStorage.setItem('promo_list', JSON.stringify(state.promos));
@@ -789,7 +854,7 @@ function setupSettingsListeners() {
 
 // --- INIT ---
 window.addEventListener('load', () => {
-    console.log("App Initialization Start v1.6.3 (Backward Compatibility Edition)");
+    console.log("App Initialization Start v1.6.8 (Personal Notes & Multi-Sync Mode)");
     gapiInit(); 
     gisInit(); 
     renderDashboard();
