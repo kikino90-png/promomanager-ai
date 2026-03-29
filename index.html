@@ -161,6 +161,24 @@
                         <span class="material-icons-round">folder_special</span>
                         <input type="text" id="drive-folder-id" placeholder="Incolla l'ID della cartella">
                     </div>
+
+                    <!-- NEW: Sync Diagnostics Panel -->
+                    <div id="sync-details-panel" style="margin-top:10px; padding:15px; background:rgba(255,255,255,0.05); border-radius:16px; border:1px solid var(--glass-border); font-size:0.8rem;">
+                        <h4 style="margin-bottom:10px; color:var(--primary); font-size:0.85rem; display:flex; align-items:center; gap:8px;">
+                            <span class="material-icons-round" style="font-size:1.1rem;">info</span>
+                            Stato Sincronizzazione
+                        </h4>
+                        <div style="display:flex; flex-direction:column; gap:8px; color:var(--text-dim);">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Locale:</span>
+                                <span id="debug-local-update" style="color:var(--text-color); font-weight:700;">--</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Cloud (Drive):</span>
+                                <span id="debug-cloud-update" style="color:var(--text-color); font-weight:700;">--</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="config-group" style="margin-top:20px; border-top:1px solid var(--glass-border); padding-top:20px;">
@@ -188,7 +206,7 @@
                 </div>
 
                 <div class="info-footer">
-                    <p>PromoManager v1.5.8 • March 2026</p>
+                    <p>PromoManager v1.6.3 • March 2026</p>
                     <p>Powered by Gemini 3.1 Flash Lite</p>
                 </div>
             </section>
@@ -229,6 +247,12 @@
                         <input type="text" class="form-support" placeholder="email@contatto.it">
                         <a href="#" target="_blank" class="form-support-link hidden" style="color:var(--primary);"><span class="material-icons-round">open_in_new</span></a>
                     </div>
+                </div>
+
+                <!-- NEW: Participation Rules Summary -->
+                <div class="input-field minimal" style="margin-top:15px;">
+                    <label style="color:var(--accent); font-weight:800;">Come Partecipare (Sintesi AI)</label>
+                    <textarea class="form-participation-rules" placeholder="Es: Acquista 2 prodotti, carica entro 5gg..." style="width:100%; min-height:80px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:12px; color:var(--text-color); font-size:0.9rem; padding:10px; font-family:inherit; resize:vertical;"></textarea>
                 </div>
                 
                 <div class="list-section" style="margin-top:20px;">
@@ -327,8 +351,14 @@
         <p style="font-weight:700;" id="loader-text">Analisi AI Gemini 3.1 in corso...</p>
     </div>
 
+    <!-- Toast UI -->
+    <div id="toast" class="toast">
+        <span class="material-icons-round">info</span>
+        <span id="toast-text">Messaggio di sistema</span>
+    </div>
+
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
-    <script src="app.js?v=1.5.8" type="module"></script>
+    <script src="app.js?v=1.6.3" type="module"></script>
 </body>
 </html>

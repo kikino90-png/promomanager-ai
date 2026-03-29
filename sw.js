@@ -1,4 +1,4 @@
-const CACHE_NAME = 'promomanager-v1.5.8'; // Incrementa per forzare l'aggiornamento
+const CACHE_NAME = 'promomanager-v1.6.3'; // Incrementa per forzare l'aggiornamento
 const ASSETS = [
     './',
     './index.html',

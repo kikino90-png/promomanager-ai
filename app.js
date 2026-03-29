@@ -65,6 +65,12 @@ function populateConfigFields() {
     document.getElementById('gemini-key').value = state.geminiKey;
     document.getElementById('google-client-id').value = state.googleClientId;
     document.getElementById('drive-folder-id').value = state.driveFolderId;
+    
+    // UI Diagnostics
+    const localTimer = document.getElementById('debug-local-update');
+    if (localTimer) {
+        localTimer.innerText = state.lastUpdate ? new Date(state.lastUpdate).toLocaleString('it-IT') : "Mai sincronizzato";
+    }
 }
 
 navItems.forEach(item => {
@@ -88,10 +94,31 @@ function renderPromoForm(container, data = null, isEdit = false) {
     const eanTable = clone.querySelector('.form-ean-list');
     const scanBtn = clone.querySelector('.form-scan-btn');
     const purchaseDateIn = clone.querySelector('.form-purchase-date');
-    const sendDeadline = clone.querySelector('.form-send-deadline');
-    const refundDeadline = clone.querySelector('.form-refund-deadline');
+    const rulesIn = clone.querySelector('.form-participation-rules');
     const saveBtn = clone.querySelector('.form-save-btn');
     
+    // Fix Upload Buttons Listeners
+    const receiptZone = clone.querySelector('.form-receipt-zone');
+    const receiptIn = clone.querySelector('.form-receipt-upload');
+    const productsZone = clone.querySelector('.form-products-zone');
+    const productsIn = clone.querySelector('.form-products-upload');
+
+    receiptZone.onclick = () => receiptIn.click();
+    productsZone.onclick = () => productsIn.click();
+
+    receiptIn.onchange = (e) => {
+        if (e.target.files[0]) {
+            receiptZone.querySelector('p').innerText = "✅ Scontrino Pronto";
+            receiptZone.style.borderColor = "var(--primary)";
+        }
+    };
+    productsIn.onchange = (e) => {
+        if (e.target.files.length) {
+            productsZone.querySelector('p').innerText = `✅ ${e.target.files.length} Prodotti`;
+            productsZone.style.borderColor = "var(--primary)";
+        }
+    };
+
     if (data) {
         nameIn.value = tidy(data.name || data.shop);
         startIn.value = data.validity?.start || data.start || '';
@@ -100,6 +127,7 @@ function renderPromoForm(container, data = null, isEdit = false) {
         amountIn.value = data.cashback_amount || data.amount || 0;
         supportIn.value = data.support_contacts || data.support || '';
         purchaseDateIn.value = data.purchaseDate || '';
+        if (rulesIn) rulesIn.value = data.participation_rules || data.how_to_participate || '';
         
         const products = data.products || [];
         eanTable.innerHTML = products.map(p => `
@@ -239,58 +267,150 @@ syncBtn.onclick = () => {
     }
 };
 
+// --- UTILS ---
+function showToast(msg, icon = 'info') {
+    const toast = document.getElementById('toast');
+    const text = document.getElementById('toast-text');
+    const iconEl = toast.querySelector('.material-icons-round');
+    if (!toast || !text) return;
+    text.innerText = msg;
+    iconEl.innerText = icon;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
 async function pushStateToCloud() {
     if (!state.isAuthorized || !state.driveFolderId) return;
     updateCloudUI('syncing');
+    showToast("Salvataggio su Drive...", "cloud_upload");
     try {
-        const files = await gapi.client.drive.files.list({ q: `name = 'promo_sync.json' and '${state.driveFolderId}' in parents and trashed = false`, fields: 'files(id)' });
+        const resp = await gapi.client.drive.files.list({ q: `name = 'promo_sync.json' and '${state.driveFolderId}' in parents and trashed = false`, fields: 'files(id)' });
+        const files = resp.result.files;
         
-        // Prepariamo l'oggetto di sync con Timestamp
         const syncData = { promos: state.promos, lastUpdate: state.lastUpdate };
         const content = JSON.stringify(syncData);
-        
         const metadata = { name: 'promo_sync.json', parents: [state.driveFolderId] };
-        let fileId = files.result.files[0]?.id;
+        let fileId = files[0]?.id;
+        
         const formData = new FormData();
         formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
         formData.append('file', new Blob([content], { type: 'application/json' }));
+        
         const url = fileId ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart` : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-        await fetch(url, { method: fileId ? 'PATCH' : 'POST', headers: { 'Authorization': 'Bearer ' + gapi.auth.getToken().access_token }, body: formData });
+        const fetchResp = await fetch(url, { 
+            method: fileId ? 'PATCH' : 'POST', 
+            headers: { 'Authorization': 'Bearer ' + gapi.auth.getToken().access_token }, 
+            body: formData 
+        });
+
+        if (fetchResp.status === 401) throw { status: 401 };
+        
         updateCloudUI('online');
-    } catch(e) { updateCloudUI('offline'); }
+        showToast("Dati salvati su Drive!", "check_circle");
+    } catch(err) { 
+        console.error("Push Error Details:", err);
+        updateCloudUI('offline');
+        if (err.status === 401) {
+            state.isAuthorized = false;
+            showToast("Sessione scaduta, riprova.", "sync_problem");
+        } else {
+            showToast("Errore di salvataggio.", "error");
+        }
+    }
 }
 
 async function pullStateFromCloud() {
     if (!state.isAuthorized || !state.driveFolderId) return;
     updateCloudUI('syncing');
+    showToast("Sincronizzazione...", "sync");
+    console.log(`[DEBUG] Ricerca promo_sync.json in cartella: ${state.driveFolderId}`);
+    
     try {
-        const files = await gapi.client.drive.files.list({ q: `name = 'promo_sync.json' and '${state.driveFolderId}' in parents and trashed = false`, fields: 'files(id)' });
-        if (files.result.files.length > 0) {
-            const fileId = files.result.files[0].id;
-            const resp = await gapi.client.drive.files.get({ fileId, alt: 'media' });
-            
-            // Gestione dati con Timestamp
-            const remoteData = resp.result || {};
-            const remotePromos = remoteData.promos || (Array.isArray(remoteData) ? remoteData : []);
-            const remoteUpdate = remoteData.lastUpdate || 0;
+        const resp = await gapi.client.drive.files.list({ 
+            q: `name = 'promo_sync.json' and '${state.driveFolderId}' in parents and trashed = false`, 
+            fields: 'files(id, name, modifiedTime)' 
+        });
+        const files = resp.result.files;
+        console.log(`[DEBUG] Risultati ricerca: Found ${files.length} file(s).`);
 
-            if (remoteUpdate > state.lastUpdate) {
-                // Il Cloud è più nuovo: Carichiamolo
-                if (confirm(`Trovati dati più recenti su Drive (${new Date(remoteUpdate).toLocaleString()}). Sincronizzare?`)) {
-                    state.promos = remotePromos;
-                    state.lastUpdate = remoteUpdate;
-                    localStorage.setItem('promo_list', JSON.stringify(state.promos));
-                    localStorage.setItem('last_update', state.lastUpdate);
-                    renderDashboard();
+        if (files.length === 0) {
+            updateCloudUI('online');
+            const cloudTimer = document.getElementById('debug-cloud-update');
+            if (cloudTimer) cloudTimer.innerText = "Non trovato";
+            
+            if (state.promos.length > 0) {
+                if (confirm("Nessun file di sincronizzazione trovato su Drive. Vuoi crearlo ora con i tuoi dati attuali?")) {
+                    await pushStateToCloud();
                 }
-            } else if (remoteUpdate < state.lastUpdate && state.lastUpdate > 0) {
-                // Il Locale è più nuovo: Aggiorniamo il Cloud in silenzio
-                console.log("Locale più recente, aggiorno il cloud...");
-                pushStateToCloud();
+            } else {
+                showToast("Nessun dato su Drive. Crea una promo!", "info");
             }
+            return;
+        }
+
+        const fileId = files[0].id;
+        const modifiedTime = new Date(files[0].modifiedTime).getTime();
+        console.log(`[DEBUG] File trovato ID: ${fileId}. Scaricamento contenuto...`);
+        
+        const fileContent = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
+        let remoteData = fileContent.result;
+
+        // Gestione Parsing Robusto
+        if (typeof remoteData === 'string') {
+            try { remoteData = JSON.parse(remoteData); } catch(e) { console.error("[DEBUG] Errore Parsing JSON:", e); }
+        }
+
+        console.log("[DEBUG] Remote Content:", remoteData);
+
+        // Gestione Formati Legacy (Array vs Oggetto)
+        let remotePromos = [];
+        let remoteUpdate = 0;
+
+        if (Array.isArray(remoteData)) {
+            remotePromos = remoteData;
+            remoteUpdate = modifiedTime; // Fallback alla data file Drive
+            console.log("[DEBUG] Formato Legacy (Array) rilevato. Fallback su modifiedTime.");
+        } else if (remoteData && typeof remoteData === 'object') {
+            remotePromos = remoteData.promos || [];
+            remoteUpdate = remoteData.lastUpdate || modifiedTime;
+        }
+
+        const localUpdate = state.lastUpdate || 0;
+        console.log(`[DEBUG] Timestamp - Remote: ${remoteUpdate}, Local: ${localUpdate}`);
+        
+        // UI Diagnostics Update
+        const cloudTimer = document.getElementById('debug-cloud-update');
+        if (cloudTimer) cloudTimer.innerText = remoteUpdate ? new Date(remoteUpdate).toLocaleString('it-IT') : "Dato corrotto";
+        populateConfigFields(); 
+
+        if (remoteUpdate > localUpdate) {
+            if (confirm(`Rilevato aggiornamento su Drive (${new Date(remoteUpdate).toLocaleString()}). Sostituire dati locali?`)) {
+                state.promos = remotePromos;
+                state.lastUpdate = remoteUpdate;
+                localStorage.setItem('promo_list', JSON.stringify(state.promos));
+                localStorage.setItem('last_update', state.lastUpdate);
+                renderDashboard();
+                showToast("Dati scaricati da Drive!", "cloud_download");
+            } else {
+                showToast("Sincronizzazione annullata", "info");
+            }
+        } else if (localUpdate > remoteUpdate) {
+            await pushStateToCloud();
+            showToast("Dati locali inviati a Drive", "cloud_upload");
+        } else {
+            showToast("Tutto aggiornato! ✅", "check_circle");
         }
         updateCloudUI('online');
-    } catch(e) { updateCloudUI('offline'); }
+    } catch(err) { 
+        console.error("Pull Error", err);
+        updateCloudUI('offline');
+        if (err.status === 401) {
+            state.isAuthorized = false;
+            showToast("Autorizzazione scaduta.", "sync_problem");
+        } else {
+            showToast("Errore di connessione Drive.", "error");
+        }
+    }
 }
 
 async function uploadFileToDrive(file, parentId, fileName) {
@@ -360,7 +480,7 @@ analyzeBtn.onclick = async () => {
     
     let promptText = "Analizza questo regolamento ";
     promptText += link ? `al link: ${link}` : "dal PDF allegato";
-    promptText += ". ESTRAI TUTTI I PRODOTTI COINVOLTI CON TUTTI I CODICI EAN SE PRESENTI, NON OMETTERE NULLA. Output in JSON: { \"name\": \"...\", \"validity\": {\"start\": \"...\", \"end\": \"...\"}, \"products\": [{\"ean\": \"...\", \"name\": \"...\"}], \"invio_giorni\": 7, \"rimborso_giorni\": 180, \"refund_mode\": \"...\", \"cashback_amount\": 10.0, \"support_contacts\": \"...\" }";
+    promptText += ". ESTRAI TUTTI I PRODOTTI COINVOLTI CON TUTTI I CODICI EAN SE PRESENTI. NON OMETTERE NULLA. AGGIUNGI UNA SINTESI DEI REQUISITI (Cosa bisogna fare: es. acquista almeno 2 prodotti, spesa minima 10€, ecc.) nel campo 'how_to_participate'. Output in JSON: { \"name\": \"...\", \"validity\": {\"start\": \"...\", \"end\": \"...\"}, \"products\": [{\"ean\": \"...\", \"name\": \"...\"}], \"how_to_participate\": \"...\", \"invio_giorni\": 7, \"rimborso_giorni\": 180, \"refund_mode\": \"...\", \"cashback_amount\": 10.0, \"support_contacts\": \"...\" }";
 
     const parts = [{ text: promptText }];
     if (state.currentPdfBase64) parts.push({ inlineData: { mimeType: "application/pdf", data: state.currentPdfBase64 } });
@@ -443,7 +563,8 @@ async function handleSave(container, isUpdate = false) {
             support: container.querySelector('.form-support').value,
             status: isUpdate ? state.promos.find(p => p.id === state.editingPromoId).status : '⏳ In attesa',
             driveFolderId: folderId,
-            products: finalProducts
+            products: finalProducts,
+            participation_rules: container.querySelector('.form-participation-rules').value
         };
 
         if (isUpdate) {
@@ -668,7 +789,7 @@ function setupSettingsListeners() {
 
 // --- INIT ---
 window.addEventListener('load', () => {
-    console.log("App Initialization Start v1.5.8 (GitHub Stable Edition)");
+    console.log("App Initialization Start v1.6.3 (Backward Compatibility Edition)");
     gapiInit(); 
     gisInit(); 
     renderDashboard();
