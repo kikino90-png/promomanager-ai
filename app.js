@@ -222,7 +222,13 @@ syncBtn.onclick = () => {
     if (!tokenClient) gisInit();
 
     if (tokenClient) {
-        tokenClient.requestAccessToken({ prompt: 'consent select_account' });
+        // Se siamo già autorizzati in questa sessione, facciamo solo il pull dei dati
+        if (state.isAuthorized) {
+            pullStateFromCloud();
+        } else {
+            // Altrimenti chiediamo l'account (necessario su mobile per Chrome)
+            tokenClient.requestAccessToken({ prompt: 'consent select_account' });
+        }
     } else {
         if (!state.googleClientId) {
             alert("⚠️ Devi prima inserire il tuo 'Google Client ID' nelle Impostazioni ⚙️");
@@ -662,7 +668,7 @@ function setupSettingsListeners() {
 
 // --- INIT ---
 window.addEventListener('load', () => {
-    console.log("App Initialization Start v1.5.7 (Lazy Auth Fix)");
+    console.log("App Initialization Start v1.5.8 (GitHub Stable Edition)");
     gapiInit(); 
     gisInit(); 
     renderDashboard();
