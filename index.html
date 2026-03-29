@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PromoManager - Cashback AI</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json?v=1.5.6">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="logo">
+                <span class="material-icons-round">stars</span>
+                <h1>PromoManager</h1>
+                <span id="cloud-status" class="cloud-badge offline">
+                    <span class="material-icons-round">cloud_off</span>
+                </span>
+            </div>
+            <button id="sync-btn" class="icon-btn">
+                <span class="material-icons-round">sync</span>
+            </button>
+        </header>
+
+        <!-- Main Content (Screens) -->
+        <main id="screen-container">
+            <!-- Home Screen (Dashboard) -->
+            <section id="screen-home" class="screen active">
+                <div class="filter-bar">
+                    <span class="material-icons-round">calendar_today</span>
+                    <select id="year-filter">
+                        <option value="total">Tutto il tempo</option>
+                        <!-- Popolato via JS -->
+                    </select>
+                </div>
+
+                <div class="stats-overview">
+                    <div class="stat-card" data-status="pending">
+                        <span id="stat-pending-val" class="stat-value">€ 0.00</span>
+                        <span class="stat-label">In attesa</span>
+                    </div>
+                    <div class="stat-card" data-status="refunded">
+                        <span id="stat-refunded-val" class="stat-value">€ 0.00</span>
+                        <span class="stat-label">Rimborsati</span>
+                    </div>
+                    <div class="stat-card" data-status="invalid">
+                        <span id="stat-invalid-count" class="stat-value">0</span>
+                        <span class="stat-label">Non Validati</span>
+                    </div>
+                    <div class="stat-card" data-status="total">
+                        <span id="stat-total-count" class="stat-value">0</span>
+                        <span class="stat-label">Totali</span>
+                    </div>
+                </div>
+
+                <div class="section-title">
+                    <h2>Le mie Promozioni</h2>
+                    <span class="badge" id="list-filter-label">Aggiornato</span>
+                </div>
+
+                <div id="promo-list" class="promo-list"></div>
+            </section>
+
+            <!-- New Promo Screen -->
+            <section id="screen-new" class="screen">
+                <div class="method-selector">
+                    <button class="method-tab active" data-method="ai">
+                        <span class="material-icons-round">psychology</span>
+                        AI Smart
+                    </button>
+                    <button class="method-tab" data-method="manual">
+                        <span class="material-icons-round">edit</span>
+                        Manuale
+                    </button>
+                </div>
+
+                <!-- AI Method Container -->
+                <div id="method-ai" class="method-content active">
+                    <div class="input-field">
+                        <span class="material-icons-round">link</span>
+                        <input type="text" id="reg-link" placeholder="Incolla link regolamento">
+                    </div>
+                    
+                    <div class="or-separator" style="text-align:center; margin: 10px 0; color:var(--text-dim); font-size:0.8rem; font-weight:700;">OPPURE</div>
+
+                    <div class="upload-area" id="drop-zone-pdf">
+                        <span class="material-icons-round">picture_as_pdf</span>
+                        <p>Carica PDF Regolamento</p>
+                        <input type="file" id="pdf-upload" accept="application/pdf" hidden>
+                    </div>
+
+                    <div class="ai-controls" style="margin-top: 24px;">
+                        <button id="analyze-btn" class="primary-btn">
+                            <span class="material-icons-round">auto_awesome</span>
+                            Analizza con Gemini 3.1
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Manual Mode Hint -->
+                <div id="method-manual-hint" class="method-content">
+                    <p class="info-footer">Inserisci i dettagli qui sotto.</p>
+                </div>
+
+                <!-- Form (Unified Creation) -->
+                <div id="ai-results" class="results-panel hidden">
+                    <!-- Form content replicated for creation -->
+                    <div id="create-form-container"></div> 
+                    <!-- We'll populate this with JS to avoid duplication -->
+                </div>
+            </section>
+
+            <!-- Details Screen (Edit/View) -->
+            <section id="screen-details" class="screen">
+                <header class="section-header">
+                    <button id="back-to-home" class="icon-btn">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h2>Dettaglio Promo</h2>
+                    <button id="delete-promo-btn" class="icon-btn danger">
+                        <span class="material-icons-round">delete_forever</span>
+                    </button>
+                </header>
+
+                <div id="details-form-container" class="results-panel active">
+                    <!-- Populated by JS -->
+                </div>
+
+                <div class="details-actions" style="margin-top:20px; padding:0 20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <button id="status-refunded-btn" class="primary-btn" style="background:var(--success); color:white;">
+                        <span class="material-icons-round">check_circle</span>
+                        Rimborsata
+                    </button>
+                    <button id="status-rejected-btn" class="primary-btn" style="background:var(--danger); color:white;">
+                        <span class="material-icons-round">cancel</span>
+                        Rifiutata
+                    </button>
+                </div>
+
+                <div class="details-actions" style="margin-top:10px; padding:0 20px 40px;">
+                    <button id="update-promo-btn" class="primary-btn" style="background:var(--primary); color:white;">
+                        <span class="material-icons-round">save</span>
+                        Salva Modifiche
+                    </button>
+                </div>
+            </section>
+
+            <!-- Settings Screen -->
+            <section id="screen-config" class="screen">
+                <div class="section-title"><h2>Configurazione App</h2></div>
+                
+                <div class="config-group">
+                    <label>Google Drive (Root Folder ID)</label>
+                    <div class="input-field">
+                        <span class="material-icons-round">folder_special</span>
+                        <input type="text" id="drive-folder-id" placeholder="Incolla l'ID della cartella">
+                    </div>
+                </div>
+
+                <div class="config-group" style="margin-top:20px; border-top:1px solid var(--glass-border); padding-top:20px;">
+                    <label>Gestione Account Cloud</label>
+                    <button id="btn-logout" class="primary-btn danger" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">
+                        <span class="material-icons-round">logout</span> Scollega Account Google
+                    </button>
+                    <p style="font-size:0.75rem; color:var(--text-dim); margin-top:8px; text-align:center;">Scollega l'account attuale per sceglierne uno diverso al prossimo avvio.</p>
+                </div>
+
+                <div class="config-group">
+                    <label>Sicurezza & API</label>
+                    <div class="input-field">
+                        <span class="material-icons-round">api</span>
+                        <input type="password" id="gemini-key" placeholder="Gemini API Key">
+                    </div>
+                    <div class="input-field">
+                        <span class="material-icons-round">vpn_key</span>
+                        <input type="text" id="google-client-id" placeholder="Google Client ID">
+                    </div>
+                </div>
+
+                <div id="settings-feedback" style="text-align:center; color:var(--accent); font-weight:700; font-size:0.8rem; height:20px; margin-top:10px; opacity:0; transition:opacity 0.3s;">
+                    Impostazioni salvate! ✅
+                </div>
+
+                <div class="info-footer">
+                    <p>PromoManager v1.5.6 • March 2026</p>
+                    <p>Powered by Gemini 3.1 Flash Lite</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Template for the Promo Form -->
+        <template id="promo-form-template">
+            <div class="promo-details-card">
+                <div class="input-field minimal">
+                    <label>Nome Promozione</label>
+                    <input type="text" class="form-name">
+                </div>
+                <div class="row" style="display:flex; gap:10px;">
+                    <div class="input-field minimal" style="flex:1;">
+                        <label>Inizio</label>
+                        <input type="text" class="form-start">
+                    </div>
+                    <div class="input-field minimal" style="flex:1;">
+                        <label>Fine</label>
+                        <input type="text" class="form-end">
+                    </div>
+                </div>
+                <div class="row" style="display:flex; gap:10px;">
+                    <div class="input-field minimal" style="flex:1;">
+                        <label>Rimborso</label>
+                        <input type="text" class="form-refund-terms">
+                    </div>
+                    <div class="input-field minimal" style="flex:1;">
+                        <label>Cashback (€)</label>
+                        <input type="number" class="form-amount" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Support Contacts Field -->
+                <div class="input-field minimal">
+                    <label>Assistenza Promotore (Email Prioritaria)</label>
+                    <div style="display:flex; width:100%; align-items:center; gap:10px;">
+                        <input type="text" class="form-support" placeholder="email@contatto.it">
+                        <a href="#" target="_blank" class="form-support-link hidden" style="color:var(--primary);"><span class="material-icons-round">open_in_new</span></a>
+                    </div>
+                </div>
+                
+                <div class="list-section" style="margin-top:20px;">
+                    <label style="font-weight:800; font-size:0.75rem; color:var(--primary); text-transform:uppercase;">Prodotti in Promozione</label>
+                    <div class="ean-table-container" style="margin-top:10px; overflow-x:auto;">
+                        <table class="ean-table">
+                            <thead>
+                                <tr>
+                                    <th>EAN</th>
+                                    <th>Prodotto</th>
+                                </tr>
+                            </thead>
+                            <tbody class="form-ean-list">
+                                <!-- Tr elements -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="secondary-btn form-scan-btn" style="margin-top: 15px; width:100%; display:flex; gap:8px; justify-content:center; padding:12px; border-radius:12px; border:1px solid var(--primary); background:none; color:var(--primary); font-weight:700;">
+                        <span class="material-icons-round">qr_code_scanner</span>
+                        Scannerizza EAN Prodotto
+                    </button>
+                </div>
+            </div>
+
+            <div class="participation-section" style="margin-top:30px; border-top:1px solid var(--glass-border); padding-top:20px;">
+                <h3 style="margin-bottom:15px; font-size:1.1rem;">La tua Partecipazione</h3>
+                <div class="input-field">
+                    <label style="margin-right: 10px; font-weight:700; font-size: 0.8rem; flex:0 0 100px;">DATA ACQUISTO:</label>
+                    <input type="date" class="form-purchase-date" style="flex:1;">
+                </div>
+                
+                <div class="deadline-preview" style="background:var(--bg-color); padding:15px; border-radius:16px; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="deadline-item">
+                        <span style="display:block; font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Invia entro:</span>
+                        <span class="form-send-deadline" style="font-weight:800; color:var(--primary);">--</span>
+                    </div>
+                    <div class="deadline-item">
+                        <span style="display:block; font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Rimborso:</span>
+                        <span class="form-refund-deadline" style="font-weight:800; color:var(--accent);">--</span>
+                    </div>
+                </div>
+
+                <div class="upload-area-group" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+                    <div class="upload-area form-receipt-zone" style="padding:15px; border-radius:18px;">
+                        <span class="material-icons-round">receipt_long</span>
+                        <p style="font-size:0.8rem;">Scontrino</p>
+                        <input type="file" class="form-receipt-upload" accept="image/*" capture="environment" hidden>
+                    </div>
+
+                    <div class="upload-area form-products-zone" style="padding:15px; border-radius:18px;">
+                        <span class="material-icons-round">shopping_bag</span>
+                        <p style="font-size:0.8rem;">Prodotti</p>
+                        <input type="file" class="form-products-upload" accept="image/*" multiple hidden>
+                    </div>
+                </div>
+
+                <button class="primary-btn success form-save-btn">
+                    <span class="material-icons-round">cloud_done</span>
+                    <span>Salva Tutto su Drive</span>
+                </button>
+            </div>
+        </template>
+
+        <!-- Navigation Bar -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-screen="home">
+                <span class="material-icons-round">home</span>
+                <span>Home</span>
+            </button>
+            <button class="nav-item" data-screen="new">
+                <span class="material-icons-round">add_circle_outline</span>
+                <span>Nuova</span>
+            </button>
+            <button class="nav-item" data-screen="config">
+                <span class="material-icons-round">settings</span>
+                <span>Impostazioni</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Scanner Overlay -->
+    <div id="scanner-overlay" class="overlay hidden">
+        <div class="scanner-header">
+            <h3>Verifica EAN</h3>
+            <button id="close-scanner" class="icon-btn" style="background:rgba(0,0,0,0.5); color:#fff;"><span class="material-icons-round">close</span></button>
+        </div>
+        <div id="scanner-video-container" style="border-radius:24px; overflow:hidden;">
+            <video id="scanner-video" playsinline></video>
+        </div>
+        <div id="scanner-result">Inquadra il codice a barre...</div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loading-overlay" class="overlay hidden">
+        <div class="loader"></div>
+        <p style="font-weight:700;" id="loader-text">Analisi AI Gemini 3.1 in corso...</p>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="app.js?v=1.5.6" type="module"></script>
+</body>
+</html>

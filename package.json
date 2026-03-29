@@ -1,0 +1,17 @@
+{
+  "name": "promomanager-ai",
+  "version": "1.3.0",
+  "description": "PWA per la gestione cashback con AI",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx browser-sync start --server --files '*.html, *.css, *.js' --no-notify"
+  },
+  "keywords": [
+    "pwa",
+    "cashback",
+    "ai",
+    "gemini"
+  ],
+  "author": "Enrico",
+  "license": "MIT"
+}
